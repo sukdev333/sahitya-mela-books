@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sahitya Mela - Share Your Stories</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
@@ -56,7 +57,20 @@
             filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.5));
         }
         
-        .upload-btn {
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .upload-btn, .auth-btn, .logout-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -69,9 +83,14 @@
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
         
-        .upload-btn:hover {
+        .upload-btn:hover, .auth-btn:hover, .logout-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.7rem 1.5rem;
         }
         
         .container {
@@ -210,6 +229,10 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
+        .auth-modal-content {
+            max-width: 450px;
+        }
+        
         .close-btn {
             position: absolute;
             top: 1.5rem;
@@ -282,6 +305,22 @@
             box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
         }
         
+        .auth-toggle {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .auth-toggle a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+        
         .comments-section {
             margin-top: 3rem;
             padding-top: 2rem;
@@ -339,13 +378,26 @@
             border-radius: 10px;
             display: none;
         }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="header-content">
             <h1><span class="logo">📚</span> Sahitya Mela</h1>
-            <button class="upload-btn" onclick="openUploadModal()">✨ Upload Book</button>
+            <div class="header-actions">
+                <div class="user-info" id="userInfo">
+                    <span id="userEmail"></span>
+                    <button class="logout-btn" onclick="handleLogout()">Logout</button>
+                </div>
+                <button class="auth-btn" id="authBtn" onclick="openAuthModal()">Sign In</button>
+                <button class="upload-btn" id="uploadBtn" style="display: none;" onclick="openUploadModal()">✨ Upload Book</button>
+            </div>
         </div>
     </header>
     
@@ -355,9 +407,34 @@
             <p>Share your stories, discover amazing books, and connect with readers worldwide</p>
         </div>
         
-        <div class="books-grid" id="booksGrid"></div>
+        <div class="books-grid" id="booksGrid">
+            <div class="loading">Loading books...</div>
+        </div>
     </div>
     
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal">
+        <div class="modal-content auth-modal-content">
+            <button class="close-btn" onclick="closeAuthModal()">&times;</button>
+            <h2 id="authTitle" style="margin-bottom: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Sign In</h2>
+            <form id="authForm">
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="authEmail" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" id="authPassword" required placeholder="Enter password">
+                </div>
+                <button type="submit" class="submit-btn" id="authSubmitBtn">Sign In</button>
+            </form>
+            <div class="auth-toggle">
+                <span id="authToggleText">Don't have an account? <a onclick="toggleAuthMode()">Sign Up</a></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload Modal -->
     <div id="uploadModal" class="modal">
         <div class="modal-content">
             <button class="close-btn" onclick="closeUploadModal()">&times;</button>
@@ -389,6 +466,7 @@
         </div>
     </div>
     
+    <!-- Read Book Modal -->
     <div id="readModal" class="modal">
         <div class="modal-content">
             <button class="close-btn" onclick="closeReadModal()">&times;</button>
@@ -397,40 +475,97 @@
     </div>
     
     <script>
-        let books = [
-            {
-                id: 1,
-                title: "The Midnight Garden",
-                author: "Priya Sharma",
-                cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
-                description: "A magical tale of a young girl who discovers a secret garden that only appears at midnight.",
-                content: "Chapter 1: The Discovery\n\nIt was a warm summer night when Maya first noticed the strange glow coming from behind the old wall. The moonlight seemed to dance differently there, casting shadows that moved against the wind. She had lived in this house her entire life, yet never had she seen such an ethereal light.\n\nCuriosity pulled her forward, her bare feet silent on the cool grass. As she approached the ancient stone wall, covered in ivy and moss, she noticed something extraordinary—a door. Not just any door, but one that seemed to shimmer and pulse with an inner light.\n\nWith trembling hands, she reached for the brass handle...",
-                comments: [
-                    { author: "Rahul K", text: "Beautiful story! Loved the imagery and the magical atmosphere." },
-                    { author: "Anita M", text: "Can't wait for the next chapter! This is captivating." }
-                ]
-            },
-            {
-                id: 2,
-                title: "Echoes of Tomorrow",
-                author: "Arjun Mehta",
-                cover: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=800&q=80",
-                description: "A science fiction thriller about time travel and the consequences of changing the past.",
-                content: "Prologue\n\nThe machine hummed with an otherworldly energy. Dr. Kapoor knew that once he stepped through, nothing would ever be the same. The temporal displacement field crackled around him, distorting reality itself.\n\n'Are you sure about this?' his assistant asked, her voice barely audible over the machine's resonance.\n\n'We've run the simulations a thousand times,' he replied, though his hands betrayed his nervousness. 'The math is perfect. The timeline will hold.'\n\nBut as he stepped into the shimmering portal, he couldn't shake the feeling that some equations couldn't account for the human heart...",
-                comments: []
-            },
-            {
-                id: 3,
-                title: "Monsoon Memories",
-                author: "Kavita Desai",
-                cover: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80",
-                description: "A heartwarming collection of stories about love, loss, and finding home during the monsoon season.",
-                content: "Story 1: The First Rain\n\nThe smell of wet earth filled the air as the first drops fell on the parched ground. Meera stood on the balcony, watching the sky transform from dusty grey to deep charcoal. This was her favorite time of year—when the world seemed to wash itself clean and start anew.\n\nShe remembered her grandmother's words: 'The monsoon doesn't just bring rain, beta. It brings memories, washing them up like shells on a shore.'\n\nAnd it was true. With each raindrop, memories flooded back—of childhood games in puddles, of paper boats racing down streams, of hot chai and pakoras shared with loved ones...",
-                comments: [
-                    { author: "Sanjay P", text: "This brought back so many childhood memories! Beautifully written." }
-                ]
+        // Initialize Supabase - REPLACE WITH YOUR CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let currentUser = null;
+        let isSignUp = false;
+        
+        // Check auth state on load
+        async function initAuth() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                currentUser = user;
+                updateUIForAuth(true);
             }
-        ];
+            loadBooks();
+        }
+        
+        function updateUIForAuth(isAuthenticated) {
+            const authBtn = document.getElementById('authBtn');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const userInfo = document.getElementById('userInfo');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (isAuthenticated) {
+                authBtn.style.display = 'none';
+                uploadBtn.style.display = 'block';
+                userInfo.style.display = 'flex';
+                userEmail.textContent = currentUser.email;
+            } else {
+                authBtn.style.display = 'block';
+                uploadBtn.style.display = 'none';
+                userInfo.style.display = 'none';
+            }
+        }
+        
+        function openAuthModal() {
+            document.getElementById('authModal').style.display = 'block';
+        }
+        
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+        }
+        
+        function toggleAuthMode() {
+            isSignUp = !isSignUp;
+            const title = document.getElementById('authTitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const toggleText = document.getElementById('authToggleText');
+            
+            if (isSignUp) {
+                title.textContent = 'Sign Up';
+                submitBtn.textContent = 'Sign Up';
+                toggleText.innerHTML = 'Already have an account? <a onclick="toggleAuthMode()">Sign In</a>';
+            } else {
+                title.textContent = 'Sign In';
+                submitBtn.textContent = 'Sign In';
+                toggleText.innerHTML = 'Don\'t have an account? <a onclick="toggleAuthMode()">Sign Up</a>';
+            }
+        }
+        
+        document.getElementById('authForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            
+            try {
+                if (isSignUp) {
+                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    alert('✅ Sign up successful! Please check your email to verify your account.');
+                } else {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    currentUser = data.user;
+                    updateUIForAuth(true);
+                    closeAuthModal();
+                    alert('✅ Signed in successfully!');
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        });
+        
+        async function handleLogout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            updateUIForAuth(false);
+            alert('✅ Logged out successfully!');
+        }
         
         // Image preview
         document.getElementById('bookCover')?.addEventListener('input', function(e) {
@@ -443,8 +578,40 @@
             }
         });
         
-        function renderBooks() {
+        async function loadBooks() {
+            try {
+                const { data: books, error } = await supabase
+                    .from('books')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                renderBooks(books || []);
+            } catch (error) {
+                console.error('Error loading books:', error);
+                document.getElementById('booksGrid').innerHTML = '<div class="loading">Error loading books. Using demo mode.</div>';
+                // Fallback to demo books
+                renderBooks([
+                    {
+                        id: 1,
+                        title: "The Midnight Garden",
+                        author: "Priya Sharma",
+                        cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
+                        description: "A magical tale of a young girl who discovers a secret garden that only appears at midnight.",
+                        content: "Chapter 1: The Discovery\n\nIt was a warm summer night when Maya first noticed the strange glow...",
+                        comments: []
+                    }
+                ]);
+            }
+        }
+        
+        function renderBooks(books) {
             const grid = document.getElementById('booksGrid');
+            if (books.length === 0) {
+                grid.innerHTML = '<div class="loading">No books yet. Be the first to upload!</div>';
+                return;
+            }
+            
             grid.innerHTML = books.map(book => `
                 <div class="book-card" onclick="openBook(${book.id})">
                     ${book.cover ? 
@@ -456,7 +623,6 @@
                         <div class="book-author">by ${book.author}</div>
                         <div class="book-description">${book.description}</div>
                         <div class="book-stats">
-                            <span>💬 ${book.comments.length} comments</span>
                             <span>📖 Read now</span>
                         </div>
                     </div>
@@ -465,6 +631,11 @@
         }
         
         function openUploadModal() {
+            if (!currentUser) {
+                alert('Please sign in to upload books');
+                openAuthModal();
+                return;
+            }
             document.getElementById('uploadModal').style.display = 'block';
         }
         
@@ -472,104 +643,90 @@
             document.getElementById('uploadModal').style.display = 'none';
         }
         
-        function openBook(bookId) {
-            const book = books.find(b => b.id === bookId);
-            const modal = document.getElementById('readModal');
-            const details = document.getElementById('bookDetails');
-            
-            details.innerHTML = `
-                ${book.cover ? `<img src="${book.cover}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 15px; margin-bottom: 2rem;">` : ''}
-                <h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem; font-size: 2.5rem;">${book.title}</h2>
-                <p style="color: #667eea; margin-bottom: 2rem; font-size: 1.2rem;">by ${book.author}</p>
-                <p style="margin-bottom: 1rem; color: rgba(255,255,255,0.9);"><strong>Description:</strong> ${book.description}</p>
+        async function openBook(bookId) {
+            try {
+                const { data: book, error } = await supabase
+                    .from('books')
+                    .select('*')
+                    .eq('id', bookId)
+                    .single();
                 
-                <div class="book-content">${book.content}</div>
+                if (error) throw error;
                 
-                <div class="comments-section">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.5rem;">Comments (${book.comments.length})</h3>
-                    <div id="commentsList">
-                        ${book.comments.map(comment => `
-                            <div class="comment">
-                                <div class="comment-author">${comment.author}</div>
-                                <div class="comment-text">${comment.text}</div>
-                            </div>
-                        `).join('')}
-                    </div>
+                const modal = document.getElementById('readModal');
+                const details = document.getElementById('bookDetails');
+                
+                details.innerHTML = `
+                    ${book.cover ? `<img src="${book.cover}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 15px; margin-bottom: 2rem;">` : ''}
+                    <h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem; font-size: 2.5rem;">${book.title}</h2>
+                    <p style="color: #667eea; margin-bottom: 2rem; font-size: 1.2rem;">by ${book.author}</p>
+                    <p style="margin-bottom: 1rem; color: rgba(255,255,255,0.9);"><strong>Description:</strong> ${book.description}</p>
                     
-                    <div class="comment-form">
-                        <div class="form-group">
-                            <label>Your Name</label>
-                            <input type="text" id="commentAuthor" placeholder="Enter your name">
-                        </div>
-                        <div class="form-group">
-                            <label>Your Comment</label>
-                            <textarea id="commentText" placeholder="Share your thoughts..."></textarea>
-                        </div>
-                        <button class="submit-btn" onclick="addComment(${bookId})">💬 Post Comment</button>
-                    </div>
-                </div>
-            `;
-            
-            modal.style.display = 'block';
+                    <div class="book-content">${book.content}</div>
+                `;
+                
+                modal.style.display = 'block';
+            } catch (error) {
+                alert('Error loading book: ' + error.message);
+            }
         }
         
         function closeReadModal() {
             document.getElementById('readModal').style.display = 'none';
         }
         
-        function addComment(bookId) {
-            const author = document.getElementById('commentAuthor').value;
-            const text = document.getElementById('commentText').value;
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            if (!author || !text) {
-                alert('Please fill in both name and comment');
+            if (!currentUser) {
+                alert('Please sign in to upload books');
                 return;
             }
             
-            const book = books.find(b => b.id === bookId);
-            book.comments.push({ author, text });
-            
-            document.getElementById('commentAuthor').value = '';
-            document.getElementById('commentText').value = '';
-            
-            openBook(bookId);
-            renderBooks();
-        }
-        
-        document.getElementById('uploadForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
             const newBook = {
-                id: books.length + 1,
                 title: document.getElementById('bookTitle').value,
                 author: document.getElementById('bookAuthor').value,
                 cover: document.getElementById('bookCover').value,
                 description: document.getElementById('bookDescription').value,
                 content: document.getElementById('bookContent').value,
-                comments: []
+                user_id: currentUser.id
             };
             
-            books.unshift(newBook);
-            renderBooks();
-            closeUploadModal();
-            
-            document.getElementById('uploadForm').reset();
-            document.getElementById('coverPreview').style.display = 'none';
-            alert('📚 Book published successfully!');
+            try {
+                const { data, error } = await supabase
+                    .from('books')
+                    .insert([newBook])
+                    .select();
+                
+                if (error) throw error;
+                
+                closeUploadModal();
+                document.getElementById('uploadForm').reset();
+                document.getElementById('coverPreview').style.display = 'none';
+                alert('📚 Book published successfully!');
+                loadBooks();
+            } catch (error) {
+                alert('❌ Error publishing book: ' + error.message);
+            }
         });
         
         window.onclick = function(event) {
             const uploadModal = document.getElementById('uploadModal');
             const readModal = document.getElementById('readModal');
+            const authModal = document.getElementById('authModal');
             if (event.target === uploadModal) {
                 closeUploadModal();
             }
             if (event.target === readModal) {
                 closeReadModal();
             }
+            if (event.target === authModal) {
+                closeAuthModal();
+            }
         }
         
-        renderBooks();
+        // Initialize on page load
+        initAuth();
     </script>
 </body>
 </html>
